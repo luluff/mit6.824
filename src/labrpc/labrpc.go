@@ -151,9 +151,11 @@ func MakeNetwork() *Network {
 	go func() {
 		for {
 			select {
+			//这里接受请求！
 			case xreq := <-rn.endCh:
 				atomic.AddInt32(&rn.count, 1)
 				atomic.AddInt64(&rn.bytes, int64(len(xreq.args)))
+				//处理请求
 				go rn.processReq(xreq)
 			case <-rn.done:
 				return
@@ -196,8 +198,10 @@ func (rn *Network) readEndnameInfo(endname interface{}) (enabled bool,
 	defer rn.mu.Unlock()
 
 	enabled = rn.enabled[endname]
+	//服务器的index
 	servername = rn.connections[endname]
 	if servername != nil {
+		//根据index拿到server
 		server = rn.servers[servername]
 	}
 	reliable = rn.reliable
@@ -224,7 +228,7 @@ func (rn *Network) processReq(req reqMsg) {
 			ms := (rand.Int() % 27)
 			time.Sleep(time.Duration(ms) * time.Millisecond)
 		}
-
+		//模拟了不靠谱的网络请求失败的情形。
 		if reliable == false && (rand.Int()%1000) < 100 {
 			// drop the request, return as if timeout
 			req.replyCh <- replyMsg{false, nil}
@@ -320,8 +324,10 @@ func (rn *Network) MakeEnd(endname interface{}) *ClientEnd {
 
 	e := &ClientEnd{}
 	e.endname = endname
+	//全部请求都会扔到同一个channel
 	e.ch = rn.endCh
 	e.done = rn.done
+	//根据终端名字找
 	rn.ends[endname] = e
 	rn.enabled[endname] = false
 	rn.connections[endname] = nil
@@ -348,7 +354,6 @@ func (rn *Network) DeleteServer(servername interface{}) {
 func (rn *Network) Connect(endname interface{}, servername interface{}) {
 	rn.mu.Lock()
 	defer rn.mu.Unlock()
-
 	rn.connections[endname] = servername
 }
 
@@ -411,7 +416,7 @@ func (rs *Server) dispatch(req reqMsg) replyMsg {
 	dot := strings.LastIndex(req.svcMeth, ".")
 	serviceName := req.svcMeth[:dot]
 	methodName := req.svcMeth[dot+1:]
-
+	//根据Raft拿到service对象
 	service, ok := rs.services[serviceName]
 
 	rs.mu.Unlock()
@@ -438,9 +443,11 @@ func (rs *Server) GetCount() int {
 // an object with methods that can be called via RPC.
 // a single server may have more than one Service.
 type Service struct {
-	name    string
-	rcvr    reflect.Value
-	typ     reflect.Type
+	//Raft
+	name string
+	rcvr reflect.Value
+	typ  reflect.Type
+	//名字-》handler
 	methods map[string]reflect.Method
 }
 
