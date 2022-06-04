@@ -9,32 +9,17 @@ package mr
 import "os"
 import "strconv"
 
-type GetTaskArgs struct {
-}
-type CompleteTaskArgs struct {
-	Type      string
-	Index     int
-	FileNames []string
-}
+//
+// example to show how to declare the arguments
+// and reply for an RPC.
+//
 
-type CompleteTaskReply struct {
+type ExampleArgs struct {
+	X int
 }
 
-const (
-	mapType    = 1
-	reduceType = 2
-	NoTask     = 3
-	PleaseExit = 4
-)
-
-//1=map   2=reduce   3=no task free
-type GetTaskReply struct {
-	Type     int
-	FileName string
-	Content  string
-	Index    int
-	Nreduce  int64
-	MapNum   int64
+type ExampleReply struct {
+	Y int
 }
 
 // Add your RPC definitions here.

@@ -136,6 +136,7 @@ func (cfg *config) crash1(i int) {
 func (cfg *config) checkLogs(i int, m ApplyMsg) (string, bool) {
 	err_msg := ""
 	v := m.Command
+	//如果之前已经commit过一个相同index但value不同的也不行。
 	for j := 0; j < len(cfg.logs); j++ {
 		if old, oldok := cfg.logs[j][m.CommandIndex]; oldok && old != v {
 			log.Printf("%v: log %v; server %v\n", i, cfg.logs[i], cfg.logs[j])
@@ -144,6 +145,7 @@ func (cfg *config) checkLogs(i int, m ApplyMsg) (string, bool) {
 				m.CommandIndex, i, m.Command, j, old)
 		}
 	}
+	//前一个command必须已经提交了！
 	_, prevok := cfg.logs[i][m.CommandIndex-1]
 	cfg.logs[i][m.CommandIndex] = v
 	if m.CommandIndex > cfg.maxIndex {
@@ -242,15 +244,17 @@ func (cfg *config) start1(i int, applier func(int, chan ApplyMsg)) {
 
 	// a fresh set of outgoing ClientEnd names.
 	// so that old crashed instance's ClientEnds can't send.
+	//每个raft机器有一系列的客户端名字（连接别的raft）
 	cfg.endnames[i] = make([]string, cfg.n)
 	for j := 0; j < cfg.n; j++ {
 		cfg.endnames[i][j] = randstring(20)
 	}
-
+	//每个端口，创建一个新的ClientEnds
 	// a fresh set of ClientEnds.
 	ends := make([]*labrpc.ClientEnd, cfg.n)
 	for j := 0; j < cfg.n; j++ {
 		ends[j] = cfg.net.MakeEnd(cfg.endnames[i][j])
+		//
 		cfg.net.Connect(cfg.endnames[i][j], j)
 	}
 
@@ -280,7 +284,9 @@ func (cfg *config) start1(i int, applier func(int, chan ApplyMsg)) {
 
 	svc := labrpc.MakeService(rf)
 	srv := labrpc.MakeServer()
+	//一个server有多个service，现在只有一个raft service
 	srv.AddService(svc)
+	//根据index找到server再去调用对应的service的handler
 	cfg.net.AddServer(i, srv)
 }
 
@@ -304,7 +310,7 @@ func (cfg *config) cleanup() {
 // attach server i to the net.
 func (cfg *config) connect(i int) {
 	// fmt.Printf("connect(%d)\n", i)
-
+	//表明机器i已经连上
 	cfg.connected[i] = true
 
 	// outgoing ClientEnds
@@ -497,12 +503,14 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 // times, in case a leader fails just after Start().
 // if retry==false, calls Start() only once, in order
 // to simplify the early Lab 2B tests.
+//把cmd同步给expectedServers个服务器，并返回这个cmd的index
 func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 	t0 := time.Now()
 	starts := 0
 	for time.Since(t0).Seconds() < 10 {
 		// try all the servers, maybe one is the leader.
 		index := -1
+		//找到真leader，调用start（）
 		for si := 0; si < cfg.n; si++ {
 			starts = (starts + 1) % cfg.n
 			var rf *Raft
